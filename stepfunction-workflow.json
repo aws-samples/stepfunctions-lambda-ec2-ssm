@@ -1,121 +1,157 @@
 {
-    "Comment": "Creation of EC2",
-    "StartAt": "Create EC2",
-    "States": {
-      "Create EC2": {
-        "Type": "Task",
-        "Resource": "arn:aws:states:::lambda:invoke",
-        "OutputPath": "$.Payload",
-        "Parameters": {
-          "Payload.$": "$",
-          "FunctionName": "${aws_lambda_function.create-ec2.arn}"
+  "Comment": "Creation of EC2",
+  "StartAt": "Create EC2",
+  "States": {
+    "Create EC2": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "${aws_lambda_function.create-ec2.arn}"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "SSM Run Command"
+    },
+    "SSM Run Command": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "${aws_lambda_function.ssm-runcmd.arn}"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Wait"
+    },
+    "Wait": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "Get RunCommand Status"
+    },
+    "Get RunCommand Status": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "${aws_lambda_function.get-ssm-run-status.arn}"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Check RunCommand Status"
+    },
+    "Check RunCommand Status": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.status",
+          "StringMatches": "Success",
+          "Next": "Success"
         },
-        "Retry": [
-          {
-            "ErrorEquals": [
-              "Lambda.ServiceException",
-              "Lambda.AWSLambdaException",
-              "Lambda.SdkClientException"
-            ],
-            "IntervalSeconds": 2,
-            "MaxAttempts": 6,
-            "BackoffRate": 2
-          }
-        ],
-        "Next": "SSM Run Command"
-      },
-      "SSM Run Command": {
-        "Type": "Task",
-        "Resource": "arn:aws:states:::lambda:invoke",
-        "OutputPath": "$.Payload",
-        "Parameters": {
-          "Payload.$": "$",
-          "FunctionName": "${aws_lambda_function.ssm-runcmd.arn}"
+        {
+          "Or": [
+            {
+              "Variable": "$.status",
+              "StringMatches": "InProgress"
+            },
+            {
+              "Variable": "$.status",
+              "StringMatches": "Delayed"
+            },
+            {
+              "Variable": "$.status",
+              "StringMatches": "Pending"
+            },
+            {
+              "Variable": "$.status",
+              "StringMatches": "Incomplete"
+            }
+          ],
+          "Next": "Wait"
         },
-        "Retry": [
-          {
-            "ErrorEquals": [
-              "Lambda.ServiceException",
-              "Lambda.AWSLambdaException",
-              "Lambda.SdkClientException"
-            ],
-            "IntervalSeconds": 2,
-            "MaxAttempts": 6,
-            "BackoffRate": 2
-          }
-        ],
-        "Next": "Wait"
+        {
+          "Variable": "$.status",
+          "StringMatches": "Failed",
+          "Next": "Fail"
+        }
+      ]
+    },
+    "Success": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "${aws_lambda_function.delete-ec2.arn}"
       },
-      "Wait": {
-        "Type": "Wait",
-        "Seconds": 30,
-        "Next": "Get RunCommand Status"
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "End": true
+    },
+    "Fail": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "${aws_lambda_function.delete-ec2.arn}"
       },
-      "Get RunCommand Status": {
-        "Type": "Task",
-        "Resource": "arn:aws:states:::lambda:invoke",
-        "OutputPath": "$.Payload",
-        "Parameters": {
-          "Payload.$": "$",
-          "FunctionName": "${aws_lambda_function.get-ssm-run-status.arn}"
-        },
-        "Retry": [
-          {
-            "ErrorEquals": [
-              "Lambda.ServiceException",
-              "Lambda.AWSLambdaException",
-              "Lambda.SdkClientException"
-            ],
-            "IntervalSeconds": 2,
-            "MaxAttempts": 6,
-            "BackoffRate": 2
-          }
-        ],
-        "Next": "Check RunCommand Status"
-      },
-      "Check RunCommand Status": {
-        "Type": "Choice",
-        "Choices": [
-          {
-            "Variable": "$.status",
-            "StringMatches": "Success",
-            "Next": "Success"
-          },
-          {
-            "Or": [
-              {
-                "Variable": "$.status",
-                "StringMatches": "InProgress"
-              },
-              {
-                "Variable": "$.status",
-                "StringMatches": "Delayed"
-              },
-              {
-                "Variable": "$.status",
-                "StringMatches": "Pending"
-              },
-              {
-                "Variable": "$.status",
-                "StringMatches": "Incomplete"
-              }
-            ],
-            "Next": "Wait"
-          },
-          {
-            "Variable": "$.status",
-            "StringMatches": "Failed",
-            "Next": "Fail"
-          }
-        ]
-      },
-      "Success": {
-        "Type": "Succeed"
-      },
-      "Fail": {
-        "Type": "Fail",
-        "Error": "RunCommand Failure",
-        "Cause": "Run Command Execution Failure"
-      }
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "End": true
     }
   }
+}

@@ -6,6 +6,12 @@ data "archive_file" "archive-create-ec2" {
   source_file = "../lambda/create-ec2/lambda-function.py"
 }
 
+data "archive_file" "archive-delete-ec2" {
+  type        = "zip"
+  output_path = "../lambda/create-ec2/archive.zip"
+  source_file = "../lambda/create-ec2/lambda-function.py"
+}
+
 data "archive_file" "archive-get-ssm-run-status" {
   type        = "zip"
   output_path = "../lambda/get-ssm-run-status/archive.zip"
@@ -128,6 +134,15 @@ resource "aws_lambda_function" "create-ec2" {
       ami = "${var.ec2_ami}"
     }
   }
+}
+
+resource "aws_lambda_function" "delete-ec2" {
+  filename         = "../lambda/delete-ec2/archive.zip"
+  function_name    = "sfn-delete-ec2"
+  role             = "${aws_iam_role.iam_for_lambda.arn}"
+  handler          = "lambda-function.lambda_handler"
+  runtime          = "python3.8"
+  timeout          = 900
 }
 
 resource "aws_lambda_function" "get-ssm-run-status" {

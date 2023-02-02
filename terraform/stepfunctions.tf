@@ -150,18 +150,54 @@ resource "aws_sfn_state_machine" "sfn_state_machine" {
         ]
       },
       "Success": {
-        "Type": "Succeed"
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "OutputPath": "$.Payload",
+        "Parameters": {
+          "Payload.$": "$",
+          "FunctionName": "${aws_lambda_function.delete-ec2.arn}"
+        },
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "Lambda.ServiceException",
+              "Lambda.AWSLambdaException",
+              "Lambda.SdkClientException"
+            ],
+            "IntervalSeconds": 2,
+            "MaxAttempts": 6,
+            "BackoffRate": 2
+          }
+        ],
+        "End": true
       },
       "Fail": {
-        "Type": "Fail",
-        "Error": "RunCommand Failure",
-        "Cause": "Run Command Execution Failure"
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "OutputPath": "$.Payload",
+        "Parameters": {
+          "Payload.$": "$",
+          "FunctionName": "${aws_lambda_function.delete-ec2.arn}"
+        },
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "Lambda.ServiceException",
+              "Lambda.AWSLambdaException",
+              "Lambda.SdkClientException"
+            ],
+            "IntervalSeconds": 2,
+            "MaxAttempts": 6,
+            "BackoffRate": 2
+          }
+        ],
+        "End": true
       }
     }
   }
 EOF
 
-  depends_on = [aws_lambda_function.create-ec2,aws_lambda_function.get-ssm-run-status,aws_lambda_function.ssm-runcmd]
+  depends_on = [aws_lambda_function.create-ec2,aws_lambda_function.get-ssm-run-status,aws_lambda_function.ssm-runcmd,aws_lambda_function.delete-ec2]
 
 }
 
