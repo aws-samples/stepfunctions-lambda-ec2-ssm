@@ -8,8 +8,8 @@ data "archive_file" "archive-create-ec2" {
 
 data "archive_file" "archive-delete-ec2" {
   type        = "zip"
-  output_path = "../lambda/create-ec2/archive.zip"
-  source_file = "../lambda/create-ec2/lambda-function.py"
+  output_path = "../lambda/delete-ec2/archive.zip"
+  source_file = "../lambda/delete-ec2/lambda-function.py"
 }
 
 data "archive_file" "archive-get-ssm-run-status" {
